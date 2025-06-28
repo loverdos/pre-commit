@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck disable=SC2034
+SCRIPT_ID=AF13AE47-34E0-41FA-8FF8-AF660A922C6A
+
+cmds=()
+cmd_statuses=()
+successes=0
+failures=0
+dot_pre_commit=.pre-commit
+git_root="" # to be filled in
+
+function LOG() {
+    echo "$@" >&2
+}
+
+function git-get-root() {
+    git rev-parse --show-toplevel 2>/dev/null
+}
+
+function install() {
+    cd "$git_root" || exit 1
+
+    mkdir -p .git/hooks
+
+    hook_path=".git/hooks/pre-commit"
+
+    cp "$0" $hook_path
+    chmod +x $hook_path
+    LOG "Installed pre-commit hook $0 to .git/hooks/pre-commit"
+
+    if [[ ! -d $dot_pre_commit ]]; then
+        mkdir -p $dot_pre_commit
+        LOG "Created $dot_pre_commit folder"
+
+        hook_00=$dot_pre_commit/00
+        cat >"$hook_00" <<EOF
+#!/usr/bin/env bash
+
+echo Success before committing
+EOF
+
+        chmod +x $hook_00
+        LOG "Wrote sample hook $hook_00"
+    else
+        LOG "$dot_pre_commit folder already exists, I am not touching anything."
+    fi
+}
+
+function check_statuses() {
+    LOG
+    LOG "== Results: $successes success(es), $failures failure(s)"
+
+    result=0
+    for i in "${!cmds[@]}"; do
+        if ((cmd_statuses[i] == 0)); then
+            LOG "✅ ${cmds[i]}"
+        else
+            LOG "❌ ${cmds[i]}"
+            result=1
+        fi
+    done
+
+    exit $result
+}
+
+function run() {
+    # Proceed with the pre-commit checks.
+    LOG "Running pre-commit hook(s)"
+    set +e
+
+    for hook in "$git_root/$dot_pre_commit"/*; do
+        LOG
+        LOG "== Run: $hook"
+
+        $hook
+
+        status=$?
+        cmds+=("$hook")
+        cmd_statuses+=("$status")
+
+        if ((status == 0)); then
+            ((successes++))
+        else
+            ((failures++))
+        fi
+
+        LOG "== Exit: [$status]"
+    done
+
+    set -e
+    check_statuses
+}
+
+# We must always be in a git work tree.
+git_root=$(git-get-root)
+if [[ -z $git_root ]]; then
+    LOG "Error: not inside a Git repository"
+    exit 1
+fi
+
+# Install ourselves if that is what was requested.
+if [[ $# -eq 1 && $1 == "--install" ]]; then
+    install
+else
+    run
+fi
