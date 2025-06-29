@@ -28,11 +28,12 @@ SCRIPT_ID=AF13AE47-34E0-41FA-8FF8-AF660A922C6A
 #     A pre-existing `.git/hooks/pre-commit` is backed up in `.git/hooks`.
 #
 # In the `.pre-commit` folder you place the scripts to run before any `git commit`.
+# Apparently, none of them should be named `pre-commit`.
 # That's it.
 #
 # Developing the script itself:
 #   1. ... make changes
-#   2. `./install`
+#   2. `./pre-commit --install`
 #   3. `git commit`
 # We assume `shellcheck` is installed.
 
@@ -40,10 +41,11 @@ set -euo pipefail
 
 MY_URL=https://raw.githubusercontent.com/loverdos/pre-commit/main/pre-commit
 
-dot_pre_commit=.pre-commit
-dot_pre_commit_pre_commit=$dot_pre_commit/pre-commit
+pre_commit=pre-commit
+dot_pre_commit=.$pre_commit
+dot_pre_commit_pre_commit=$dot_pre_commit/$pre_commit
 dot_git_hooks=.git/hooks
-dot_git_hooks_pre_commit=$dot_git_hooks/pre-commit
+dot_git_hooks_pre_commit=$dot_git_hooks/$pre_commit
 
 cmds=()
 cmd_statuses=()
@@ -51,6 +53,7 @@ successes=0
 failures=0
 
 git_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+dot_script_id=.script_id
 
 function LOG() {
     echo "== $*" >&2
@@ -58,6 +61,10 @@ function LOG() {
 
 function mk-id() {
     echo "$(date -u +%F).$$.$RANDOM"
+}
+
+function is-it-me() {
+    [[ -f $dot_script_id ]] && [[ $(cat $dot_script_id) == "$SCRIPT_ID" ]]
 }
 
 function install() {
@@ -68,11 +75,19 @@ function install() {
     mkdir -p $dot_pre_commit
     mkdir -p $dot_git_hooks
 
-    # Get a fresh version of ourselves from the internet.
-    # (yeah, redundant the first time you install it but self-updates next time you call it with --install...)
-    # This will override any file already residing there.
-    curl -fsSL $MY_URL -o $dot_pre_commit_pre_commit
-    chmod +x $dot_pre_commit_pre_commit
+    if is-it-me; then
+        # We are just developing ourselves
+        LOG "Hey, I noticed you are messing around with me :)"
+        cp $pre_commit $dot_pre_commit_pre_commit
+    else
+        # This is being installed on a random work tree ...
+        #
+        # Get a fresh version of ourselves from the internet.
+        # (yeah, redundant the first time you install it but self-updates next time you call it with --install...)
+        # This will override any file already residing there.
+        curl -fsSL $MY_URL -o $dot_pre_commit_pre_commit
+        chmod +x $dot_pre_commit_pre_commit
+    fi
 
     if git ls-files --error-unmatch $dot_pre_commit_pre_commit >/dev/null 2>&1; then
         # file is tracked

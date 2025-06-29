@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-
-./pre-commit --install
-cp ./pre-commit .pre-commit/
