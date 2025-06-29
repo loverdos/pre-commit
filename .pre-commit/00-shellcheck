@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
 
-echo Running shellcheck ...
-shellcheck "$(git rev-parse --show-toplevel)"/pre-commit
+for script in pre-commit .pre-commit/*; do
+    echo shellcheck "$script"
+    shellcheck "$script"
+done
