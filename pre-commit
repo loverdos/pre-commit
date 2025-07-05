@@ -52,7 +52,7 @@ cmd_statuses=()
 successes=0
 failures=0
 
-git_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+git_root="$(git rev-parse --show-toplevel)"
 dot_script_id=.script_id
 
 function LOG() {
