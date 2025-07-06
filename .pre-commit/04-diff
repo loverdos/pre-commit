@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+diff pre-commit .pre-commit/pre-commit

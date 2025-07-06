@@ -2,6 +2,10 @@
 
 # SPDX-License-Identifier: Apache-2.0
 # Source: https://github.com/loverdos/pre-commit
+
+# shellcheck disable=SC2034
+SCRIPT_VERSION=9
+
 # shellcheck disable=SC2034
 SCRIPT_ID=AF13AE47-34E0-41FA-8FF8-AF660A922C6A
 

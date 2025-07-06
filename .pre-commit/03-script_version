@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+commit_count=$(git rev-list HEAD --count)
+((commit_count++))
+
+set -x
+grep "SCRIPT_VERSION=$commit_count" pre-commit
