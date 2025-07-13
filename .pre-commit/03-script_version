@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
-commit_count=$(git rev-list HEAD --count)
-((commit_count++))
+script_version=$(git show HEAD:pre-commit | grep -E "^SCRIPT_VERSION=\d+")
+new_script_version=$(grep -E "^SCRIPT_VERSION=\d+" pre-commit)
 
-set -x
-grep "SCRIPT_VERSION=$commit_count" pre-commit
+echo "    script_version: $script_version"
+echo "new_script_version: $new_script_version"
+
+((new_script_version > script_version))

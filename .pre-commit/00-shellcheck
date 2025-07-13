@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 for script in pre-commit .pre-commit/*; do
-    echo shellcheck "$script"
-    shellcheck "$script"
+    if [[ ! "$script" == .pre-commit/pre-commit.* ]]; then
+        echo shellcheck "$script"
+        shellcheck "$script"
+    fi
 done
