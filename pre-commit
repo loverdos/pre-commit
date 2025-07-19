@@ -4,7 +4,7 @@
 # Source: https://github.com/loverdos/pre-commit
 
 # shellcheck disable=SC2034
-SCRIPT_VERSION=13
+SCRIPT_VERSION=14
 
 # shellcheck disable=SC2034
 SCRIPT_ID=AF13AE47-34E0-41FA-8FF8-AF660A922C6A
@@ -169,8 +169,12 @@ function run() {
     local successes=0
     local failures=0
     local mark=""
+    local time_sec=0
+    local time_min=0
+    local time=""
 
     LOG "Running pre-commit hook"
+    SECONDS=0 # bash builtin ;)
 
     cd "$git_root"
 
@@ -202,8 +206,15 @@ function run() {
     done
     set -e
 
+    time_sec=$SECONDS
+    time_min=$((time_sec / 60))
+    time_sec=$((time_sec % 60))
+    time=$(printf "%02d:%02d" $time_min $time_sec)
+
     LOG
     LOG "Results: $successes success(es), $failures failure(s)"
+    LOG "     In: $time (min:sec)"
+    LOG
 
     local result=0
 
