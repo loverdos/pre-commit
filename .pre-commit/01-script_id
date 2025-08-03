@@ -2,4 +2,4 @@
 
 script_id=$(cat .script_id)
 
-test "$script_id" == AF13AE47-34E0-41FA-8FF8-AF660A922C6A
+[[ "$script_id" == AF13AE47-34E0-41FA-8FF8-AF660A922C6A ]]
