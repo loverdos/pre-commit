@@ -12,7 +12,7 @@
 # Tested-on: macOS, Linux
 
 # shellcheck disable=SC2034
-SCRIPT_VERSION=17
+SCRIPT_VERSION=18
 
 # shellcheck disable=SC2034
 SCRIPT_ID=AF13AE47-34E0-41FA-8FF8-AF660A922C6A
