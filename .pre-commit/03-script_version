@@ -6,4 +6,5 @@ new_script_version=$(grep -E "^SCRIPT_VERSION=\d+" pre-commit)
 echo "    script_version: $script_version"
 echo "new_script_version: $new_script_version"
 
+# Committing a new version requires that the SCRIPT_VERSION is increased.
 ((new_script_version > script_version))

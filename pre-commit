@@ -3,48 +3,21 @@
 # SPDX-License-Identifier: Apache-2.0
 # Source: https://github.com/loverdos/pre-commit
 
+# The script serves as a runner for the `git` pre-commit hook.
+# It assumes a series of scripts are placed in the `.pre-commit/` folder,
+# and runs them all.
+#
+# Requirements: recent `bash`, `git`, `shellcheck`.
+# On macOS the built-in `bash` may not work, so install from `brew`.
+# Tested-on: macOS, Linux
+
 # shellcheck disable=SC2034
-SCRIPT_VERSION=16
+SCRIPT_VERSION=17
 
 # shellcheck disable=SC2034
 SCRIPT_ID=AF13AE47-34E0-41FA-8FF8-AF660A922C6A
 
-# Requirements: recent `bash`, `curl`, `git`, and some other general utilities.
-# On macOS the built-in `bash` may not work, so install from `brew`.
-# Tested-on: macOS, Linux
-# Tested-on: fish, bash
-
-# Manages the `git` pre-commit hook.
-# The script serves both as an installer for itself and a hook runner.
-#
-# To install, you need to be in a `git` working tree already, and run
-# the following:
-#
-#   curl -fsSL https://raw.githubusercontent.com/loverdos/pre-commit/main/pre-commit -o pre-commit && chmod +x pre-commit && ./pre-commit --install
-#
-# Of course, you have the opportunity to first inspect the downloaded file and then execute it.
-#
-# This does the following:
-#   - Creates a `.pre-commit/` folder in the repo, and places the downloaded script there.
-#     A pre-existing `.pre-commit/pre-commit` is backed up in `.pre-commit/`
-#   - Makes sure that `.git/hooks/pre-commit` links to the above.
-#     A pre-existing `.git/hooks/pre-commit` is backed up in `.git/hooks`.
-#
-# In the `.pre-commit` folder you place the scripts to run before any `git commit`.
-# Apparently, none of them should be named `pre-commit`.
-# That's it.
-#
-# Developing the script itself:
-#   1. # ... make changes
-#   2. ./pre-commit --install
-#   3. git commit -m 'new version'
-#
-# We assume `shellcheck` is installed.
-
 set -euo pipefail
-
-MY_URL=https://raw.githubusercontent.com/loverdos/pre-commit/main/pre-commit
-MY_PATH="$0"
 
 pre_commit=pre-commit
 
@@ -54,121 +27,10 @@ repo=$pre_commit
 dot_pre_commit=.$pre_commit
 dot_pre_commit_pre_commit=$dot_pre_commit/$pre_commit
 
-dot_git_hooks=.git/hooks
-dot_git_hooks_pre_commit=$dot_git_hooks/$pre_commit
-
 dot_script_id=.script_id
 
 function LOG() {
     echo "== $*" >&2
-}
-
-# We must always be in a git work tree.
-git_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-    LOG "Error: $(pwd) is not a Git work tree"
-    exit 1
-}
-
-function is_it_me() {
-    [[ -f $dot_script_id ]] && [[ $(<"$dot_script_id") == "$SCRIPT_ID" ]] && {
-        # remote=$(git remote get-url origin)
-        # [[ $remote == https://github.com/$org/$repo.git || $remote == git@github.com:$org/$repo.git ]]
-        true
-    }
-}
-
-function mk_id() {
-    echo "$(date -u +%F).$$.$RANDOM"
-}
-
-function is_file_or_link() {
-    [[ -f "$1" || -L "$1" ]]
-}
-
-function is_tracked_in_git() {
-    git ls-files --error-unmatch "$1" >/dev/null 2>&1
-}
-
-function backup_file() {
-    file="$1"
-    [[ -z "$2" ]] && suffix=$(mk_id) || suffix="$2"
-
-    new_location="$file.$suffix"
-
-    LOG "Backing up $file to $new_location"
-
-    mv "$file" "$new_location"
-}
-
-function sec_to_mmss() {
-    local time_sec=$1
-    local time_min=$((time_sec / 60))
-    time_sec=$((time_sec % 60))
-
-    printf "%02d:%02d" $time_min $time_sec
-}
-
-function install() {
-    LOG "Begin installation process from $MY_PATH to $git_root"
-
-    if [[ "$MY_PATH" == /dev/*/* ]]; then
-        # We use the previous installation method:
-        #   bash -c "bash <(curl -fsSL https://raw.githubusercontent.com/loverdos/pre-commit/main/pre-commit) --install"
-        # which will not work.
-
-        LOG "You appear to be installing using the old installation recipe"
-        LOG "  https://github.com/loverdos/pre-commit/blob/fdfb0a7b38e7175f45de69c2bd92eac2e342805e/pre-commit#L23"
-        LOG "which is not compatible with newer versions of the script"
-        LOG ""
-        LOG "Please use the newer installation method."
-
-        return 2
-    fi
-
-    cd "$git_root"
-
-    local script=$dot_pre_commit_pre_commit
-
-    local script_exists=0
-    is_file_or_link $script && script_exists=1 # normally it should not be a link ...
-
-    local script_is_tracked=0
-    is_tracked_in_git $script && script_is_tracked=1
-
-    if ((script_is_tracked == 1)); then
-        LOG "$script exists and is tracked by git"
-    elif ((script_exists == 1)); then
-        LOG "$script exists and is not being tracked by git"
-    else
-        LOG "$script does not exist, first time installation"
-    fi
-
-    # Make sure all the needed folders exist
-    mkdir -p $dot_pre_commit
-    mkdir -p $dot_git_hooks
-
-    # Back up the previous version and install the new one.
-    backup_id=$(mk_id)
-    if ((script_is_tracked == 0 && script_exists == 1)); then
-        backup_file $script "$backup_id"
-    fi
-
-    if is_it_me; then
-        cp "$MY_PATH" $script
-    else
-        mv "$MY_PATH" $script
-    fi
-
-    # Back up the hook and install the new one
-    if is_file_or_link $dot_git_hooks_pre_commit; then
-        backup_file $dot_git_hooks_pre_commit "$backup_id"
-    fi
-    ln -s "$git_root"/$script $dot_git_hooks_pre_commit
-
-    LOG "Installed version: $SCRIPT_VERSION "
-    LOG "               of: $MY_URL"
-    LOG "               to: $script"
-    LOG "End installation process from $MY_PATH to $git_root"
 }
 
 function run() {
@@ -181,8 +43,22 @@ function run() {
     local script_time=""
     local script_times=()
 
+    function sec_to_mmss() {
+        local time_sec=$1
+        local time_min=$((time_sec / 60))
+        time_sec=$((time_sec % 60))
+
+        printf "%02d:%02d" $time_min $time_sec
+    }
+
     LOG "Running pre-commit hook"
     SECONDS=0 # bash builtin ;)
+
+    # We must always be in a git work tree.
+    git_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+        LOG "Error: $(pwd) is not a Git work tree"
+        return 1
+    }
 
     cd "$git_root"
 
@@ -244,9 +120,4 @@ function run() {
     return $result
 }
 
-# Install ourselves if that is what was requested.
-if [[ $# -eq 1 && $1 == "--install" ]]; then
-    install
-else
-    run
-fi
+run

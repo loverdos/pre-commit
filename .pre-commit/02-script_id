@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
-script_id=$(cat .script_id)
+script_id=$(<.script_id)
 
+# SCRIPT_ID must match
 grep "^SCRIPT_ID=$script_id" pre-commit
