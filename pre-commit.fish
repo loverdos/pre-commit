@@ -29,7 +29,7 @@ function pre-commit --description "Discover and run the pre-commit script"
         log "Found .pre-commit/pre-commit (current directory)"
     else if test -n "$git_root"; and test -x "$git_root/.pre-commit/pre-commit"
         set script "$git_root/.pre-commit/pre-commit"
-        log "Found .pre-commit/pre-commit (at git root: $git_root)"
+        log "Found .pre-commit/pre-commit (at git root: "(basename "$git_root")")"
     else if test -n "$git_root"
         # Search up to 3 levels deep from git root for files named pre-commit,
         # excluding .git directories
@@ -37,12 +37,12 @@ function pre-commit --description "Discover and run the pre-commit script"
         set -l candidates (find "$git_root" -maxdepth $levels \( -name .git -prune \) -o \( -name pre-commit -type f -print \) 2>/dev/null)
 
         if test (count $candidates) -eq 0
-            log "No pre-commit script found anywhere in $git_root (searched $levels levels deep)"
+            log "No pre-commit script found (searched $levels levels deep from "(basename "$git_root")")"
             return 2
         end
 
         # Show all candidates relative to git root
-        log Found (count $candidates) "pre-commit script(s) in $git_root:"
+        log Found (count $candidates) "pre-commit script(s) in "(basename "$git_root")":"
         for c in $candidates
             log "  "(string replace "$git_root/" "" -- $c)
         end
