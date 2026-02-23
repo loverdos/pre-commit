@@ -12,7 +12,7 @@
 # Tested-on: macOS, Linux
 
 # shellcheck disable=SC2034
-SCRIPT_VERSION=21
+SCRIPT_VERSION=22
 
 # shellcheck disable=SC2034
 SCRIPT_ID=AF13AE47-34E0-41FA-8FF8-AF660A922C6A
@@ -22,9 +22,6 @@ set -euo pipefail
 pre_commit=pre-commit
 
 dot_pre_commit=.$pre_commit
-dot_pre_commit_pre_commit=$dot_pre_commit/$pre_commit
-
-dot_script_id=.script_id
 
 function LOG() {
     echo -e "\033[32m==\033[0m $*" >&2
@@ -39,6 +36,16 @@ function run() {
     local script_seconds=0
     local script_time=""
     local script_times=()
+    local git_root
+    local interrupted=0
+    local script_dir
+    local dot_pre_commit_abs
+    local dot_pre_commit_display
+    local dot_pre_commit_pre_commit
+    local script_display
+    local elapsed
+    local results_suffix=""
+    local result
 
     function sec_to_mmss() {
         local time_sec=$1
@@ -48,38 +55,73 @@ function run() {
         printf "%02d:%02d" $time_min $time_sec
     }
 
-    LOG "Running pre-commit hook"
+    LOG "Running pre-commit script ${BASH_SOURCE[0]}"
+    LOG "Version: $SCRIPT_VERSION, ID: $SCRIPT_ID"
+
     SECONDS=0 # bash builtin ;)
 
-    # We must always be in a git work tree.
-    git_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-        LOG "Error: $(pwd) is not a Git work tree"
-        return 1
-    }
+    # Resolve the directory where this script lives
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    cd "$git_root"
+    # Try to resolve git root once, used for discovery and display paths
+    git_root=$(git rev-parse --show-toplevel 2>/dev/null) || true
 
-    # Trap Ctrl-C to exit immediately, even under set +e
-    trap 'LOG; LOG "Interrupted"; exit 130' INT
+    # Discover .pre-commit directory and set:
+    #   dot_pre_commit_abs     - absolute path, used for execution
+    #   dot_pre_commit_display - path relative to git root, used for logging
+    # Discovery order:
+    #   1. The script's own directory is .pre-commit (script lives inside it)
+    #   2. .pre-commit exists at the git repo root
+    #   3. Give up
+    if [[ "$(basename "$script_dir")" == "$dot_pre_commit" ]]; then
+        dot_pre_commit_abs="$script_dir"
+        if [[ -n "$git_root" ]]; then
+            dot_pre_commit_display="${dot_pre_commit_abs#"$git_root"/}"
+        else
+            dot_pre_commit_display=$(basename "$dot_pre_commit_abs")
+        fi
+        LOG "Found .pre-commit as $dot_pre_commit_display (script's own directory)"
+    elif [[ -n "$git_root" ]] && [[ -d "$git_root/$dot_pre_commit" ]]; then
+        dot_pre_commit_display="$dot_pre_commit"
+        dot_pre_commit_abs="$git_root/$dot_pre_commit"
+        LOG "Found .pre-commit as $dot_pre_commit_display (at git root)"
+    else
+        LOG "No .pre-commit directory found"
+        return 2
+    fi
+
+    # Set CWD to the parent of .pre-commit, so scripts run from the project root
+    cd "$(dirname "$dot_pre_commit_abs")"
+
+    # Absolute path used to skip recursive runs
+    dot_pre_commit_pre_commit=$dot_pre_commit_abs/$pre_commit
+
+    # Trap Ctrl-C using a flag instead of exit, so we break out of the loop
+    # gracefully and still print the summary for scripts that already ran.
+    # This also avoids killing the caller's shell if the script is source'd.
+    trap 'interrupted=1' INT
 
     set +e
-    for script in "$dot_pre_commit"/*; do
+    for script in "$dot_pre_commit_abs"/*; do
         # We do not want to run ourselves recursively ...
         if [[ "$script" == "$dot_pre_commit_pre_commit" || "$script" == "$dot_pre_commit_pre_commit".* ]]; then
             continue
         fi
 
+        # Display-friendly path: .pre-commit/script-name
+        script_display="$dot_pre_commit_display/$(basename "$script")"
+
         LOG
-        LOG "Run: $script"
+        LOG "Run: $script_display"
 
         script_seconds=$SECONDS
-        
-        $script
+
+        "$script"
         status=$?
-        
+
         script_seconds=$((SECONDS - script_seconds))
 
-        cmds+=("$script")
+        cmds+=("$script_display")
         cmd_statuses+=("$status")
 
         script_time=$(sec_to_mmss $script_seconds)
@@ -93,18 +135,27 @@ function run() {
             mark="❌"
         fi
 
-        LOG "Exit: $mark [= $status] $script"
+        LOG "Exit: $mark [= $status] $script_display"
+
+        # Stop immediately on Ctrl-C
+        if ((interrupted)); then
+            LOG
+            LOG "☠️ Interrupted ☠️"
+            break
+        fi
     done
     set -e
 
-    time=$(sec_to_mmss $SECONDS)
+    elapsed=$(sec_to_mmss $SECONDS)
 
     LOG
-    LOG "Results: $successes success(es), $failures failure(s)"
-    LOG "     In: $time [min:sec]"
+    if ((interrupted)); then results_suffix=" ☠️"; fi
+    LOG "Results: $successes success(es), $failures failure(s)$results_suffix"
+    LOG "     In: $elapsed [min:sec]"
     LOG
 
-    local result=0
+    # Interrupted counts as failure
+    result=$interrupted
 
     for i in "${!cmds[@]}"; do
         if ((cmd_statuses[i] == 0)); then
