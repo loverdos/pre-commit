@@ -12,7 +12,7 @@
 # Tested-on: macOS, Linux
 
 # shellcheck disable=SC2034
-SCRIPT_VERSION=18
+SCRIPT_VERSION=19
 
 # shellcheck disable=SC2034
 SCRIPT_ID=AF13AE47-34E0-41FA-8FF8-AF660A922C6A
@@ -20,9 +20,6 @@ SCRIPT_ID=AF13AE47-34E0-41FA-8FF8-AF660A922C6A
 set -euo pipefail
 
 pre_commit=pre-commit
-
-org=loverdos
-repo=$pre_commit
 
 dot_pre_commit=.$pre_commit
 dot_pre_commit_pre_commit=$dot_pre_commit/$pre_commit
